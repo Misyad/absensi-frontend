@@ -2,78 +2,44 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#EFF6FF">
-    <meta name="description" content="Absensi relawan SPPG Pakiskembar 2 dengan selfie langsung dan GPS">
-    <title>Absensi Relawan</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi Relawan SPPG</title>
     <link rel="stylesheet" href="style.css">
 </head>
-<body data-location-state="checking" data-time-source="loading">
-    <main class="app-shell">
-        <header class="app-header">
-            <div class="brand-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z"/><path d="m8 15 2.4 2.4L16 12"/></svg>
-            </div>
-            <div class="app-identity">
-                <h1>Absensi Relawan</h1>
-                <p class="app-subtitle">SPPG Pakiskembar 2</p>
-            </div>
-            <svg class="verified-icon" viewBox="0 0 24 24" aria-label="Koneksi aman"><path d="M12 3 20 6v5c0 5-3.3 8.2-8 10-4.7-1.8-8-5-8-10V6l8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>
-        </header>
+<body>
+    <div class="container">
+        <h2>Absensi Relawan SPPG</h2>
+        <form id="formAbsen">
+            
+            <label for="divisi">Divisi</label>
+            <select id="divisi" name="divisi" required disabled>
+                <option value="">Memuat data...</option>
+            </select>
 
-        <section class="clock-card" aria-labelledby="clockLabel">
-            <p id="clockLabel" class="clock-label">Waktu server</p>
-            <time id="currentTime" class="clock-time" datetime="">--:--:--</time>
-            <p id="workStatus" class="work-status">Menyinkronkan waktu server...</p>
-        </section>
+            <label for="nama">Nama Relawan</label>
+            <select id="nama" name="nama" required disabled>
+                <option value="">Pilih Divisi Dahulu</option>
+            </select>
 
-        <section class="attendance-section" aria-labelledby="attendanceTitle">
-            <h2 id="attendanceTitle">Mulai absensi</h2>
-            <div class="select-wrap">
-                <svg class="user-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/></svg>
-                <select id="nama" name="nama" aria-label="Pilih nama relawan" required disabled>
-                    <option value="">Memuat nama relawan...</option>
-                </select>
-            </div>
+            <label for="jenis">Jenis Absen</label>
+            <select id="jenis" name="jenis" required>
+                <option value="Masuk">Masuk</option>
+                <option value="Pulang">Pulang</option>
+            </select>
 
-            <button type="button" id="btnSubmit" class="primary-button" disabled>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4V8Z"/><circle cx="12" cy="13" r="3.5"/></svg>
-                <strong>Ambil Selfie &amp; Absen</strong>
-                <small>Kamera langsung • Verifikasi GPS</small>
-            </button>
+            <label for="foto">Foto Bukti (Kamera/Galeri)</label>
+            <input type="file" id="foto" accept="image/*" capture="environment" required>
+            <canvas id="canvas" style="display:none;"></canvas>
 
-            <div class="location-status" role="status" aria-live="polite">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
-                <span>
-                    <strong id="locationTitle">Pemeriksaan lokasi</strong>
-                    <small id="locationText">Meminta izin GPS perangkat...</small>
-                </span>
-            </div>
+            <!-- Hidden inputs untuk geolokasi -->
+            <input type="hidden" id="statusLokasi" name="statusLokasi" value="Mengambil lokasi...">
+            <input type="hidden" id="jarak" name="jarak" value="0">
+            <input type="hidden" id="radius" name="radius" value="0">
 
-            <div id="pesan" class="message" role="status" aria-live="assertive"></div>
-        </section>
-    </main>
-
-    <dialog id="cameraDialog" class="camera-dialog" aria-labelledby="cameraTitle">
-        <div class="camera-panel">
-            <div class="camera-heading">
-                <div>
-                    <h2 id="cameraTitle">Ambil selfie</h2>
-                    <p>Pastikan wajah terlihat jelas</p>
-                </div>
-                <button type="button" id="cancelCamera" class="icon-button" aria-label="Tutup kamera">×</button>
-            </div>
-            <div class="video-frame">
-                <video id="cameraVideo" autoplay playsinline muted></video>
-            </div>
-            <button type="button" id="captureButton" class="capture-button">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4V8Z"/><circle cx="12" cy="13" r="3.5"/></svg>
-                Ambil foto
-            </button>
-        </div>
-    </dialog>
-
-    <canvas id="canvas" hidden></canvas>
+            <button type="submit" id="btnSubmit">Kirim Absen</button>
+            <div id="pesan"></div>
+        </form>
+    </div>
     <script src="app.js"></script>
 </body>
 </html>

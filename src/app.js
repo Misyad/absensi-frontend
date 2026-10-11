@@ -1,254 +1,117 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbxoBVwhSHvGF-ouGt0JxI9qYtSWtDECDAkfucN9BbbJ5MimmRWolJwQlu-AHg-5HGWL6A/exec";
-const DEFAULT_ATTENDANCE_TYPE = "Masuk";
+// GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
+const API_URL = "https://script.google.com/macros/s/AKfycbxoBVwhSHvGF-ouGt0JxI9qYtSWtDECDAkfucN9BbbJ5MimmRWolJwQlu-AHg-5HGWL6A/exec"; 
 
+const divisiSelect = document.getElementById('divisi');
 const namaSelect = document.getElementById('nama');
+const form = document.getElementById('formAbsen');
 const btnSubmit = document.getElementById('btnSubmit');
 const pesanDiv = document.getElementById('pesan');
-const currentTime = document.getElementById('currentTime');
-const workStatus = document.getElementById('workStatus');
-const locationStatus = document.querySelector('.location-status');
-const locationText = document.getElementById('locationText');
-const cameraDialog = document.getElementById('cameraDialog');
-const cameraVideo = document.getElementById('cameraVideo');
-const captureButton = document.getElementById('captureButton');
-const cancelCamera = document.getElementById('cancelCamera');
-const canvas = document.getElementById('canvas');
-const buttonLabel = btnSubmit.querySelector('strong');
-
-let serverOffsetMs = 0;
-let mediaStream = null;
-let locationData = null;
 let fotoBase64 = "";
-let isSubmitting = false;
 
-function setMessage(type, text) {
-    pesanDiv.className = `message${type ? ` is-${type}` : ''}`;
-    pesanDiv.textContent = text;
-}
-
-function setButtonBusy(isBusy, label = 'Ambil Selfie & Absen') {
-    isSubmitting = isBusy;
-    btnSubmit.disabled = isBusy || namaSelect.disabled;
-    buttonLabel.textContent = label;
-}
-
-function formatServerTime(date) {
-    return new Intl.DateTimeFormat('id-ID', {
-        timeZone: 'Asia/Jakarta',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hourCycle: 'h23'
-    }).format(date).replaceAll('.', ':');
-}
-
-function updateClock() {
-    const now = new Date(Date.now() + serverOffsetMs);
-    currentTime.textContent = formatServerTime(now);
-    currentTime.dateTime = now.toISOString();
-}
-
-async function syncServerTime() {
-    try {
-        const response = await fetch(window.location.pathname, {
-            method: 'HEAD',
-            cache: 'no-store'
-        });
-        const serverDate = response.headers.get('date');
-        const serverTimestamp = Date.parse(serverDate || '');
-        if (!response.ok || !Number.isFinite(serverTimestamp)) {
-            throw new Error('Header waktu server tidak tersedia');
-        }
-        serverOffsetMs = serverTimestamp - Date.now();
-        document.body.dataset.timeSource = 'server';
-        workStatus.textContent = 'Sinkron dengan waktu server';
-        updateClock();
-        setInterval(updateClock, 1000);
-    } catch (_error) {
-        document.body.dataset.timeSource = 'error';
-        currentTime.textContent = '--:--:--';
-        workStatus.textContent = 'Waktu server tidak tersedia';
-    }
-}
-
-async function fetchJson(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Server tidak merespons');
-    return response.json();
-}
-
-async function loadVolunteers() {
-    try {
-        const divisions = await fetchJson(`${API_URL}?action=divisi`);
-        if (!Array.isArray(divisions)) throw new Error('Format divisi tidak valid');
-
-        const groups = await Promise.all(divisions.map(async division => ({
-            division,
-            names: await fetchJson(
-                `${API_URL}?action=relawan&divisi=${encodeURIComponent(division)}`
-            )
-        })));
-
-        namaSelect.innerHTML = '<option value="">Pilih nama relawan</option>';
-        groups.forEach(({ division, names }) => {
-            if (!Array.isArray(names)) return;
-            names.forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                option.textContent = name;
-                option.dataset.division = division;
-                namaSelect.appendChild(option);
-            });
-        });
-
-        if (namaSelect.options.length === 1) throw new Error('Relawan tidak tersedia');
-        namaSelect.disabled = false;
-        btnSubmit.disabled = false;
-    } catch (_error) {
-        namaSelect.innerHTML = '<option value="">Gagal memuat nama relawan</option>';
-        setMessage('error', 'Daftar relawan gagal dimuat. Silakan muat ulang halaman.');
-    }
-}
-
-function setLocationState(state, text) {
-    document.body.dataset.locationState = state;
-    locationStatus.className = `location-status is-${state}`;
-    locationText.textContent = text;
-}
-
-function locationSuccess(position) {
-    const { latitude, longitude, accuracy } = position.coords;
-    if (![latitude, longitude, accuracy].every(Number.isFinite)) {
-        locationError();
-        return;
-    }
-    locationData = { latitude, longitude, accuracy };
-    setLocationState(
-        'ready',
-        `GPS siap • akurasi ${Math.round(accuracy)} m • Koordinat akan dikirim`
-    );
-}
-
-function locationError() {
-    locationData = null;
-    setLocationState('error', 'GPS belum tersedia • Aktifkan lokasi lalu muat ulang');
-}
-
-function requestLocation() {
-    if (!('geolocation' in navigator)) {
-        locationError();
-        return;
-    }
-    navigator.geolocation.getCurrentPosition(locationSuccess, locationError, {
-        enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 30000
+// 1. Ambil Data Divisi saat halaman dimuat
+fetch(`${API_URL}?action=divisi`)
+    .then(res => res.json())
+    .then(data => {
+        divisiSelect.innerHTML = '<option value="">-- Pilih Divisi --</option>';
+        data.forEach(div => divisiSelect.innerHTML += `<option value="${div}">${div}</option>`);
+        divisiSelect.disabled = false;
     });
-}
 
-function stopCamera() {
-    if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
+// 2. Ambil Data Relawan berdasarkan Divisi
+divisiSelect.addEventListener('change', (e) => {
+    const divisi = e.target.value;
+    namaSelect.disabled = true;
+    namaSelect.innerHTML = '<option value="">Memuat relawan...</option>';
+    
+    if (divisi) {
+        fetch(`${API_URL}?action=relawan&divisi=${encodeURIComponent(divisi)}`)
+            .then(res => res.json())
+            .then(data => {
+                namaSelect.innerHTML = '<option value="">-- Pilih Nama --</option>';
+                data.forEach(nama => namaSelect.innerHTML += `<option value="${nama}">${nama}</option>`);
+                namaSelect.disabled = false;
+            });
     }
-    cameraVideo.srcObject = null;
-    if (cameraDialog.open) cameraDialog.close();
-}
+});
 
-async function openCamera() {
-    setMessage('', '');
-    if (!namaSelect.value) {
-        setMessage('error', 'Pilih nama relawan terlebih dahulu.');
-        return;
+// 3. Ambil Geolokasi
+navigator.geolocation.getCurrentPosition(
+    (pos) => {
+        // Logika jarak aktual bisa ditambahkan di sini, ini hanya contoh format
+        document.getElementById('statusLokasi').value = `${pos.coords.latitude},${pos.coords.longitude}`;
+        document.getElementById('jarak').value = `${pos.coords.accuracy} meter`;
+        document.getElementById('radius').value = "50 meter";
+    },
+    (err) => {
+        document.getElementById('statusLokasi').value = "Gagal akses GPS";
     }
-    if (!locationData || document.body.dataset.locationState !== 'ready') {
-        setMessage('error', 'GPS belum siap. Aktifkan lokasi lalu muat ulang halaman.');
-        return;
+);
+
+// 4. Kompresi Foto ke Base64 (Max lebar 800px)
+document.getElementById('foto').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const MAX_WIDTH = 800;
+            const scaleSize = MAX_WIDTH / img.width;
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scaleSize;
+            
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            fotoBase64 = canvas.toDataURL('image/jpeg', 0.7); // Kualitas 70%
+        }
+        img.src = e.target.result;
     }
-    if (!navigator.mediaDevices?.getUserMedia) {
-        setMessage('error', 'Kamera langsung tidak didukung pada perangkat ini.');
-        return;
-    }
+    reader.readAsDataURL(file);
+});
 
-    try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user' },
-            audio: false
-        });
-        cameraVideo.srcObject = mediaStream;
-        await cameraVideo.play();
-        cameraDialog.showModal();
-    } catch (_error) {
-        stopCamera();
-        setMessage('error', 'Kamera tidak dapat dibuka. Izinkan akses kamera lalu coba lagi.');
-    }
-}
-
-function captureSelfie() {
-    const width = cameraVideo.videoWidth || 640;
-    const height = cameraVideo.videoHeight || 480;
-    const maxWidth = 800;
-    const scale = Math.min(1, maxWidth / width);
-    canvas.width = Math.round(width * scale);
-    canvas.height = Math.round(height * scale);
-
-    const context = canvas.getContext('2d');
-    context.save();
-    context.translate(canvas.width, 0);
-    context.scale(-1, 1);
-    context.drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
-    context.restore();
-    fotoBase64 = canvas.toDataURL('image/jpeg', 0.72);
-    stopCamera();
-    submitAttendance();
-}
-
-async function submitAttendance() {
-    if (isSubmitting) return;
-    const selectedOption = namaSelect.selectedOptions[0];
-    const division = selectedOption?.dataset.division;
-    if (!namaSelect.value || !division || !locationData || !fotoBase64) {
-        setMessage('error', 'Data nama, GPS, atau selfie belum lengkap.');
+// 5. Submit Data ke Google Apps Script
+form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!fotoBase64) {
+        alert("Mohon tunggu proses kompresi foto atau unggah foto kembali.");
         return;
     }
 
-    setButtonBusy(true, 'Mengirim absensi...');
-    setMessage('', '');
+    btnSubmit.disabled = true;
+    btnSubmit.innerText = "Mengirim...";
+    pesanDiv.innerHTML = "";
+
     const payload = new URLSearchParams({
-        nama: namaSelect.value,
-        divisi: division,
-        jenis: DEFAULT_ATTENDANCE_TYPE,
-        statusLokasi: `${locationData.latitude},${locationData.longitude}`,
-        jarak: `${Math.round(locationData.accuracy)} meter`,
-        radius: '50 meter',
+        nama: document.getElementById('nama').value,
+        divisi: document.getElementById('divisi').value,
+        jenis: document.getElementById('jenis').value,
+        statusLokasi: document.getElementById('statusLokasi').value,
+        jarak: document.getElementById('jarak').value,
+        radius: document.getElementById('radius').value,
         foto: fotoBase64
     });
 
-    try {
-        const response = await fetch(API_URL, { method: 'POST', body: payload });
-        if (!response.ok) throw new Error('Server tidak merespons');
-        const result = await response.json();
-        if (result.status !== 'success') {
-            throw new Error(result.pesan || 'Absensi belum berhasil disimpan.');
+    fetch(API_URL, {
+        method: 'POST',
+        body: payload
+    })
+    .then(res => res.json())
+    .then(result => {
+        if (result.status === "success") {
+            pesanDiv.innerHTML = `<span class="success">${result.pesan}</span>`;
+            form.reset();
+            fotoBase64 = "";
+        } else {
+            pesanDiv.innerHTML = `<span class="error">${result.pesan}</span>`;
         }
-        setMessage('success', result.pesan || 'Absensi berhasil dikirim.');
-        namaSelect.value = '';
-        fotoBase64 = '';
-    } catch (error) {
-        setMessage('error', error.message || 'Gagal menghubungi server. Coba kembali.');
-    } finally {
-        setButtonBusy(false);
-    }
-}
-
-btnSubmit.addEventListener('click', openCamera);
-captureButton.addEventListener('click', captureSelfie);
-cancelCamera.addEventListener('click', stopCamera);
-cameraDialog.addEventListener('cancel', event => {
-    event.preventDefault();
-    stopCamera();
+    })
+    .catch(err => {
+        pesanDiv.innerHTML = `<span class="error">Gagal menghubungi server.</span>`;
+    })
+    .finally(() => {
+        btnSubmit.disabled = false;
+        btnSubmit.innerText = "Kirim Absen";
+    });
 });
-
-syncServerTime();
-loadVolunteers();
-requestLocation();
