@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Absensi Relawan SPPG</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h2>Absensi Relawan SPPG</h2>
+        <form id="formAbsen">
+            
+            <label for="divisi">Divisi</label>
+            <select id="divisi" name="divisi" required disabled>
+                <option value="">Memuat data...</option>
+            </select>
+
+            <label for="nama">Nama Relawan</label>
+            <select id="nama" name="nama" required disabled>
+                <option value="">Pilih Divisi Dahulu</option>
+            </select>
+
+            <label for="jenis">Jenis Absen</label>
+            <select id="jenis" name="jenis" required>
+                <option value="Masuk">Masuk</option>
+                <option value="Pulang">Pulang</option>
+            </select>
+
+            <label for="foto">Foto Bukti (Kamera/Galeri)</label>
+            <input type="file" id="foto" accept="image/*" capture="environment" required>
+            <canvas id="canvas" style="display:none;"></canvas>
+
+            <!-- Hidden inputs untuk geolokasi -->
+            <input type="hidden" id="statusLokasi" name="statusLokasi" value="Mengambil lokasi...">
+            <input type="hidden" id="jarak" name="jarak" value="0">
+            <input type="hidden" id="radius" name="radius" value="0">
+
+            <button type="submit" id="btnSubmit">Kirim Absen</button>
+            <div id="pesan"></div>
+        </form>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
