@@ -1,0 +1,5 @@
+FROM mcr.microsoft.com/playwright/python:v1.61.0-noble
+RUN pip install --no-cache-dir playwright==1.61.0
+WORKDIR /tests
+COPY tests/test_staging_browser.py ./test_staging_browser.py
+ENTRYPOINT ["python", "/tests/test_staging_browser.py"]

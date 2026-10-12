@@ -1,12 +1,20 @@
 // GANTI DENGAN URL WEB APP GOOGLE APPS SCRIPT ANDA
-const API_URL = "https://script.google.com/macros/s/AKfycbxoBVwhSHvGF-ouGt0JxI9qYtSWtDECDAkfucN9BbbJ5MimmRWolJwQlu-AHg-5HGWL6A/exec"; 
+const API_URL = "https://script.google.com/macros/s/AKfycbxoBVwhSHvGF-ouGt0JxI9qYtSWtDECDAkfucN9BbbJ5MimmRWolJwQlu-AHg-5HGWL6A/exec";
+const APP_CONFIG = window.APP_CONFIG || Object.freeze({ STAGING: true, ALLOW_SUBMIT: false });
 
 const divisiSelect = document.getElementById('divisi');
 const namaSelect = document.getElementById('nama');
 const form = document.getElementById('formAbsen');
 const btnSubmit = document.getElementById('btnSubmit');
 const pesanDiv = document.getElementById('pesan');
+const environmentBanner = document.getElementById('environmentBanner');
 let fotoBase64 = "";
+
+if (APP_CONFIG.STAGING) {
+    environmentBanner.hidden = false;
+    environmentBanner.textContent = "STAGING — pengiriman absensi dinonaktifkan";
+    btnSubmit.disabled = true;
+}
 
 // 1. Ambil Data Divisi saat halaman dimuat
 fetch(`${API_URL}?action=divisi`)
@@ -74,6 +82,10 @@ document.getElementById('foto').addEventListener('change', function(event) {
 // 5. Submit Data ke Google Apps Script
 form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (!APP_CONFIG.ALLOW_SUBMIT) {
+        pesanDiv.innerHTML = '<span class="error">Mode staging: pengiriman absensi dinonaktifkan.</span>';
+        return;
+    }
     if (!fotoBase64) {
         alert("Mohon tunggu proses kompresi foto atau unggah foto kembali.");
         return;

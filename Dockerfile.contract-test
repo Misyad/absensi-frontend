@@ -1,0 +1,12 @@
+FROM node:22-alpine AS js-check
+WORKDIR /app
+COPY src/app.js ./src/app.js
+RUN node --check src/app.js && touch /js-check-passed
+
+FROM python:3.12-alpine
+WORKDIR /app
+COPY --from=js-check /js-check-passed /js-check-passed
+COPY Dockerfile Dockerfile.staging Dockerfile.contract-test Dockerfile.browser-test Jenkinsfile.staging ./
+COPY src ./src
+COPY tests/test_staging_contract.py ./tests/test_staging_contract.py
+CMD ["python", "-m", "unittest", "-v", "tests/test_staging_contract.py"]

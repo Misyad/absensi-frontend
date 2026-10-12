@@ -1,0 +1,98 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE = "absensi-sppg-staging"
+        CONTRACT_IMAGE = "absensi-sppg-contract-test"
+        BROWSER_IMAGE = "absensi-sppg-browser-test"
+        CONTAINER_NAME = "web-absensi-sppg-staging"
+        NETWORK_NAME = "absensi-sppg-staging-internal"
+        PORT_MAPPING = "127.0.0.1:3004:80"
+    }
+
+    stages {
+        stage('Checkout develop') {
+            steps {
+                checkout scm
+                sh '''
+                    set -eu
+                    git fetch origin refs/heads/develop:refs/remotes/origin/develop
+                    test "$(git rev-parse HEAD)" = "$(git rev-parse origin/develop)"
+                '''
+            }
+        }
+
+        stage('Contract Test') {
+            steps {
+                sh '''
+                    set -eu
+                    docker build -f Dockerfile.contract-test -t "$CONTRACT_IMAGE:$BUILD_NUMBER" .
+                    docker run --rm "$CONTRACT_IMAGE:$BUILD_NUMBER"
+                '''
+            }
+        }
+
+        stage('Build Staging Images') {
+            steps {
+                sh '''
+                    set -eu
+                    docker build -f Dockerfile.staging -t "$DOCKER_IMAGE:$BUILD_NUMBER" .
+                    docker build -f Dockerfile.browser-test -t "$BROWSER_IMAGE:$BUILD_NUMBER" .
+                '''
+            }
+        }
+
+        stage('Deploy Staging') {
+            steps {
+                sh '''
+                    set -eu
+                    if ! docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+                      docker network create --internal "$NETWORK_NAME"
+                    fi
+                    test "$(docker network inspect "$NETWORK_NAME" --format '{{.Internal}}')" = true
+                    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+                    docker run -d --restart unless-stopped \
+                      --name "$CONTAINER_NAME" \
+                      --network "$NETWORK_NAME" \
+                      -p "$PORT_MAPPING" \
+                      "$DOCKER_IMAGE:$BUILD_NUMBER"
+                '''
+            }
+        }
+
+        stage('Verify Staging') {
+            steps {
+                sh '''
+                    set -eu
+                    for i in $(seq 1 20); do
+                      docker exec "$CONTAINER_NAME" wget -q -O- http://127.0.0.1/ >/tmp/absensi-staging.html && break
+                      sleep 1
+                    done
+                    grep -q 'Absensi Relawan SPPG' /tmp/absensi-staging.html
+                    docker exec "$CONTAINER_NAME" wget -q -O- http://127.0.0.1/config.js | grep -q 'ALLOW_SUBMIT: false'
+                    test "$(docker inspect "$CONTAINER_NAME" --format '{{(index (index .HostConfig.PortBindings "80/tcp") 0).HostIp}}')" = 127.0.0.1
+                '''
+            }
+        }
+
+        stage('Browser Fail-Closed Test') {
+            steps {
+                sh '''
+                    set -eu
+                    docker run --rm --network "$NETWORK_NAME" \
+                      "$BROWSER_IMAGE:$BUILD_NUMBER" \
+                      "http://$CONTAINER_NAME/"
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            sh 'docker tag "$DOCKER_IMAGE:$BUILD_NUMBER" "$DOCKER_IMAGE:latest"'
+        }
+        cleanup {
+            sh 'rm -f /tmp/absensi-staging.html'
+        }
+    }
+}
