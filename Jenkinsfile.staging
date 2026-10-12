@@ -7,6 +7,7 @@ pipeline {
         BROWSER_IMAGE = "absensi-sppg-browser-test"
         CONTAINER_NAME = "web-absensi-sppg-staging"
         NETWORK_NAME = "absensi-sppg-staging-internal"
+        PUBLISH_NETWORK_NAME = "absensi-sppg-staging-publish"
         PORT_MAPPING = "127.0.0.1:3004:80"
     }
 
@@ -49,13 +50,18 @@ pipeline {
                     if ! docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
                       docker network create --internal "$NETWORK_NAME"
                     fi
+                    if ! docker network inspect "$PUBLISH_NETWORK_NAME" >/dev/null 2>&1; then
+                      docker network create "$PUBLISH_NETWORK_NAME"
+                    fi
                     test "$(docker network inspect "$NETWORK_NAME" --format '{{.Internal}}')" = true
+                    test "$(docker network inspect "$PUBLISH_NETWORK_NAME" --format '{{.Internal}}')" = false
                     docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
                     docker run -d --restart unless-stopped \
                       --name "$CONTAINER_NAME" \
-                      --network "$NETWORK_NAME" \
+                      --network "$PUBLISH_NETWORK_NAME" \
                       -p "$PORT_MAPPING" \
                       "$DOCKER_IMAGE:$BUILD_NUMBER"
+                    docker network connect "$NETWORK_NAME" "$CONTAINER_NAME"
                 '''
             }
         }
@@ -71,6 +77,7 @@ pipeline {
                     grep -q 'Absensi Relawan SPPG' /tmp/absensi-staging.html
                     docker exec "$CONTAINER_NAME" wget -q -O- http://127.0.0.1/config.js | grep -q 'ALLOW_SUBMIT: false'
                     test "$(docker inspect "$CONTAINER_NAME" --format '{{(index (index .HostConfig.PortBindings "80/tcp") 0).HostIp}}')" = 127.0.0.1
+                    test "$(docker inspect "$CONTAINER_NAME" --format '{{(index (index .NetworkSettings.Ports "80/tcp") 0).HostIp}}')" = 127.0.0.1
                 '''
             }
         }

@@ -81,6 +81,18 @@ class StagingContractTest(unittest.TestCase):
             pipeline,
         )
 
+    def test_staging_separates_publish_and_internal_networks(self):
+        pipeline = read(ROOT / "Jenkinsfile.staging")
+        self.assertIn(
+            'PUBLISH_NETWORK_NAME = "absensi-sppg-staging-publish"', pipeline
+        )
+        self.assertIn('docker network create "$PUBLISH_NETWORK_NAME"', pipeline)
+        self.assertIn('--network "$PUBLISH_NETWORK_NAME"', pipeline)
+        self.assertIn(
+            'docker network connect "$NETWORK_NAME" "$CONTAINER_NAME"', pipeline
+        )
+        self.assertIn(".NetworkSettings.Ports", pipeline)
+
 
 if __name__ == "__main__":
     unittest.main()
