@@ -38,13 +38,15 @@ class StagingContractTest(unittest.TestCase):
         self.assertLess(gate, post)
         self.assertIn("Mode staging: pengiriman absensi dinonaktifkan.", app)
 
-    def test_images_make_static_assets_world_readable(self):
+    def test_images_make_static_assets_world_readable_with_legacy_builder(self):
         production = read(ROOT / "Dockerfile")
         staging = read(ROOT / "Dockerfile.staging")
-        self.assertIn("COPY --chmod=0644 ./src", production)
-        self.assertIn("COPY --chmod=0644 ./src", staging)
-        self.assertIn("COPY --chmod=0644 ./src/config.production.js", production)
-        self.assertIn("COPY --chmod=0644 ./src/config.staging.js", staging)
+        for dockerfile in (production, staging):
+            self.assertNotIn("COPY --chmod", dockerfile)
+            self.assertIn("COPY ./src /usr/share/nginx/html", dockerfile)
+            self.assertIn("RUN chmod -R a+rX /usr/share/nginx/html", dockerfile)
+        self.assertIn("COPY ./src/config.production.js", production)
+        self.assertIn("COPY ./src/config.staging.js", staging)
 
     def test_staging_image_uses_fail_closed_config(self):
         dockerfile = read(ROOT / "Dockerfile.staging")
